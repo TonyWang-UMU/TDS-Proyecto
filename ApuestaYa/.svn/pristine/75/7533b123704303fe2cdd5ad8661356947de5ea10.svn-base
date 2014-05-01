@@ -1,0 +1,18 @@
+package dao;
+
+import model.ApuestaOfrecida;
+
+public interface ApuestaOfrecidaDAO {
+
+	public ApuestaOfrecida registrarApuestaOfrecida(
+			ApuestaOfrecida apuestaOfrecida);
+
+	public ApuestaOfrecida recuperarApuestaOfrecida(int codigo);
+
+	public ApuestaOfrecida modificarApuestaOfrecida(
+			ApuestaOfrecida apuestaOfrecida);
+
+	public ApuestaOfrecida cerrarApuesta(ApuestaOfrecida apuestaOfrecida);
+
+	public ApuestaOfrecida meterCodEvento(ApuestaOfrecida apuestaOfrecida);
+}

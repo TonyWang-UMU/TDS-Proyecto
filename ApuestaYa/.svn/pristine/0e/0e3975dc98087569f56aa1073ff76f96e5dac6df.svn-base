@@ -1,0 +1,28 @@
+package model;
+
+import java.util.List;
+
+public abstract class ApuestaMultiple extends ApuestaRealizada {
+
+	private List<ApuestaRealizada> apuestasRealizadas;
+
+	public ApuestaMultiple(double cantidad, Pronostico pronostico,
+			List<ApuestaRealizada> apuestasRealizadas, int usuarioApostador) {
+		super(cantidad, pronostico, usuarioApostador);
+		this.apuestasRealizadas = apuestasRealizadas;
+	}
+
+	public List<ApuestaRealizada> getApuestasRealizadas() {
+		return apuestasRealizadas;
+	}
+
+	/**
+	 * Metodo para comprobar si una apuesta multiple es ganadora o no
+	 * 
+	 * @return true si es ganadora, false sino
+	 */
+	public abstract boolean comprobarApuestaMultiple();
+
+	public abstract double obtenerCuotaTotal();
+
+}

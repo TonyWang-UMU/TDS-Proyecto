@@ -1,0 +1,127 @@
+package model;
+
+import java.util.LinkedList;
+import java.util.List;
+import resultado.Resultado;
+
+public abstract class ApuestaOfrecida {
+
+	private List<Pronostico> listaPronosticos;
+	private int codigo;
+	private int tipoApuesta; // Para saber si es 12=0, 1X2=1, victoria=2 o
+								// Especial=3
+								// Para la persistencia
+	private Cuota cuota;
+	private List<ApuestaRealizada> apuestasRealizadas;
+	private int codEvento; // evento al que pertenece la apuesta
+	// para comprobar que una apuesta esta cerrada o no
+	private boolean cerrada;
+
+	public ApuestaOfrecida(List<Pronostico> listaPronosticos, Cuota cuota) {
+		this.listaPronosticos = listaPronosticos;
+		this.cuota = cuota;
+		apuestasRealizadas = new LinkedList<ApuestaRealizada>();
+	}
+
+	public List<ApuestaRealizada> getApuestasRealizadas() {
+		return apuestasRealizadas;
+	}
+
+	public void setApuestasRealizadas(List<ApuestaRealizada> apuestasRealizadas) {
+		this.apuestasRealizadas = apuestasRealizadas;
+	}
+
+	public void addApuestaRealizada(ApuestaRealizada apuestaRealizada) {
+		apuestasRealizadas.add(apuestaRealizada);
+	}
+
+	public List<Pronostico> getListaPronosticos() {
+		return listaPronosticos;
+	}
+
+	public Cuota getCuota() {
+		return cuota;
+	}
+
+	public int getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(int codigo) {
+		this.codigo = codigo;
+	}
+
+	public void obtenerCuota(String cuota) {
+		if (cuota.equals("CuotaBritanica"))
+			this.setCuota(new CuotaBritanica());
+		else if (cuota.equals("CuotaEuropea"))
+			this.setCuota(new CuotaEuropea());
+	}
+
+	public int getTipoApuesta() {
+		return tipoApuesta;
+	}
+
+	public void setTipoApuesta(int tipoApuesta) {
+		this.tipoApuesta = tipoApuesta;
+	}
+
+	public void setListaPronosticos(List<Pronostico> listaPronosticos) {
+		this.listaPronosticos = listaPronosticos;
+	}
+
+	public Pronostico obtenerPronostico(int codigo) {
+		for (Pronostico p : this.listaPronosticos)
+			if (p.getCodigo() == codigo)
+				return p;
+		return null;
+	}
+
+	public void setCuota(Cuota cuota) {
+		this.cuota = cuota;
+	}
+
+	public int getCodEvento() {
+		return codEvento;
+	}
+
+	public void setCodEvento(int codEvento) {
+		this.codEvento = codEvento;
+	}
+
+	protected void cerrarApuesta() {
+		this.setCerrada(true);
+	}
+
+	/**
+	 * Metodo que pasandole el resultado del evento, nos indica el pronostico
+	 * ganador y con este pronostico, recorre su lista de apuesta realizadas que
+	 * tiene y si coincide el pronostico lo marca como ganador y calula la
+	 * ganancia para sumársela al usuario.
+	 * 
+	 * @param resultado
+	 */
+
+	public abstract void obtenerGanadoras(Resultado resultado);
+
+	protected void seleccionarGanadores(String resultado) {
+		for (ApuestaRealizada apuesta : apuestasRealizadas) {
+			if (apuesta.getPronostico().getPronostico().equals(resultado)) {
+				apuesta.apuestaGanadora(cuota);
+			}
+			apuesta.finalizar();
+		}
+	}
+
+	public boolean isCerrada() {
+		return cerrada;
+	}
+
+	public void setCerrada(boolean cerrada) {
+		this.cerrada = cerrada;
+	}
+
+	public void cerrar() {
+		this.cerrada = true;
+	}
+}

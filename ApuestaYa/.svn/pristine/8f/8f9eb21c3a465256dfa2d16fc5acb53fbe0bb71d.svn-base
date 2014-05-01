@@ -1,0 +1,15 @@
+package model;
+
+public class CuotaBritanica extends Cuota {
+
+	private static double cuotaBase;
+
+	public CuotaBritanica() {
+	}
+
+	@Override
+	public double calcular(double importe, double ganancia) {
+		return cuotaBase * importe;
+	}
+
+}

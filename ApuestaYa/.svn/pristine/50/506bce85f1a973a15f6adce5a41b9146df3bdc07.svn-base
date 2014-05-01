@@ -1,0 +1,317 @@
+package dao;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.StringTokenizer;
+
+import controler.ApuestasYa;
+import beans.Entidad;
+import beans.Propiedad;
+import tds.driver.FactoriaServicioPersistencia;
+import tds.driver.ServicioPersistencia;
+import model.ApuestaOfrecida;
+import model.CatalogoEventos;
+import model.ComponenteResultadosEventos;
+import model.Evento;
+import model.Participante;
+import model.ParticipanteEquipo;
+import model.ParticipanteJugador;
+
+public class AdaptadorTDSEventoDAO implements EventoDAO {
+	private ServicioPersistencia servPersistencia;
+	private SimpleDateFormat fechaDia;
+	private SimpleDateFormat fechaHora;
+
+	public AdaptadorTDSEventoDAO() {
+		servPersistencia = FactoriaServicioPersistencia.getInstance()
+				.getServicioPersistencia();
+		fechaDia = new SimpleDateFormat("dd/MM/yyyy");
+		fechaHora = new SimpleDateFormat("HH:mm");
+	}
+
+	public Evento registrarEvento(Evento evento) {
+		Entidad eEvento;
+		eEvento = new Entidad();
+		eEvento.setNombre("evento");
+		eEvento.setPropiedades(new ArrayList<Propiedad>(Arrays.asList(
+				new Propiedad("nombre", evento.getNombre()),
+				new Propiedad("dia", fechaDia.format(evento.getFecha())),
+				new Propiedad("hora", fechaHora.format(evento.getHora())),
+				new Propiedad("apuestasOfrecidas", obtenerApuestasString(evento
+						.getApuestas())), new Propiedad("cuota", evento
+						.getCuota().getClass().getSimpleName()), new Propiedad(
+						"deporte", evento.getDeporte().getClass()
+								.getSimpleName()),
+				new Propiedad("participantes",
+						obtenerParticipantesString(evento.getParticipantes())))));
+		eEvento = servPersistencia.registrarEntidad(eEvento);
+
+		// cerrar o no el evento
+		if (evento.isCerrado()) {
+			servPersistencia.anadirPropiedadEntidad(eEvento, "cerrado", "1");
+		} else {
+			servPersistencia.anadirPropiedadEntidad(eEvento, "cerrado", "0");
+		}
+
+		evento.setCodigo(eEvento.getId());
+
+		// Asignar el codigo de evento
+		for (ApuestaOfrecida aO : evento.getApuestas()) {
+			aO.setCodEvento(evento.getCodigo());
+			// Tambien tenemos que hacer esto para guardar el codEvento
+			// persistente
+			ApuestasYa.getUnicaInstancia().meterCodEvento(aO);
+		}
+
+		// Añadimos el Evento como oyente
+		ComponenteResultadosEventos.getUnicaInstancia().addOyente(evento);
+		return evento;
+	}
+
+	private String obtenerApuestasString(List<ApuestaOfrecida> apuestasOfrecidas) {
+		String strApuesta = "";
+		for (ApuestaOfrecida apuestaOfrecida : apuestasOfrecidas) {
+			strApuesta += apuestaOfrecida.getCodigo() + "-";
+		}
+		return strApuesta;
+	}
+
+	private List<ApuestaOfrecida> obtenerApuestasList(String strApuestas) {
+		List<ApuestaOfrecida> listaApuestas = new LinkedList<ApuestaOfrecida>();
+		StringTokenizer strTok = new StringTokenizer(strApuestas, "-");
+		ApuestaOfrecida apuestaOfrecida;
+		int codigo;
+		while (strTok.hasMoreTokens()) {
+			try {
+				codigo = Integer.parseInt((String) strTok.nextElement());
+				apuestaOfrecida = this.recuperarApuestaOfrecida(codigo);
+				// Cuando recuperamos una apuesta de la base de datos y la
+				// instanciamos
+				// tenemos que acordarnos de asignarle el correspondiente codigo
+				apuestaOfrecida.setCodigo(codigo);
+				listaApuestas.add(apuestaOfrecida);
+			} catch (NumberFormatException e) {
+			} catch (DAOException e) {
+			}
+		}
+
+		return listaApuestas;
+	}
+
+	/**
+	 * Metodo que parsea una lista de participantes a un unico String para poder
+	 * almacenarlo
+	 * 
+	 * @param participantes
+	 *            La lista de participantes que tenemos
+	 * @return Un string indicando siempre antes si es jugador o equipo. En caso
+	 *         de que sea equipo, devuelve tambien en el String la serie de
+	 *         jugadores que lo componen con Equipo:Jugador
+	 */
+	private String obtenerParticipantesString(List<Participante> participantes) {
+		String lineas = "";
+		for (Participante participante : participantes) {
+			if (participante instanceof ParticipanteEquipo) {
+				lineas += "EQUIPO:" + participante.getNombre() + "-";
+				for (ParticipanteJugador jugador : ((ParticipanteEquipo) participante)
+						.getJugadores())
+					lineas += jugador.getNombre() + "-";
+				lineas = lineas.substring(0, lineas.length() - 1);
+				lineas += ":";
+			} else if (participante instanceof ParticipanteJugador)
+				lineas += participante.getNombre() + "-";
+		}
+		return lineas.substring(0, lineas.length() - 1);
+	}
+
+	/**
+	 * Metodo que pasado un String de participantes crea una lista de
+	 * participantes dependiendo de si es jugador o equipo
+	 * 
+	 * @param participantes
+	 *            El string con los participantes
+	 * @return La lista creada
+	 */
+	private List<Participante> obtenerParticipantesLista(String participantes) {
+		List<Participante> listaParticipantes = new LinkedList<Participante>();
+		StringTokenizer strTok = new StringTokenizer(participantes, ":");
+		StringTokenizer strTok2;
+		List<ParticipanteJugador> jugadoresLocal = new LinkedList<ParticipanteJugador>();
+		List<ParticipanteJugador> jugadoresVisitante = new LinkedList<ParticipanteJugador>();
+		ParticipanteEquipo local;
+		ParticipanteEquipo visitante;
+		String nombreLocal = null;
+		String nombreVisitante = null;
+
+		if (((String) strTok.nextElement()).equals("EQUIPO")) {
+			// Estamos ante una situacion de futbol
+			strTok2 = new StringTokenizer((String) strTok.nextElement(), "-");
+			nombreLocal = (String) strTok2.nextElement();
+			while (strTok2.hasMoreTokens()) {
+				jugadoresLocal.add(new ParticipanteJugador((String) strTok2
+						.nextElement()));
+			}
+			local = new ParticipanteEquipo(nombreLocal, jugadoresLocal);
+			// segundo equipo
+			if (((String) strTok.nextElement()).equals("EQUIPO")) {
+				strTok2 = new StringTokenizer((String) strTok.nextElement(),
+						"-");
+				nombreVisitante = (String) strTok2.nextElement();
+
+				while (strTok2.hasMoreTokens()) {
+					jugadoresVisitante.add(new ParticipanteJugador(
+							(String) strTok2.nextElement()));
+				}
+			}
+			local = new ParticipanteEquipo(nombreLocal, jugadoresLocal);
+			visitante = new ParticipanteEquipo(nombreVisitante,
+					jugadoresVisitante);
+			listaParticipantes.add(local);
+			listaParticipantes.add(visitante);
+
+		} else {
+			strTok = new StringTokenizer(participantes, "-");
+			while (strTok.hasMoreTokens()) {
+				listaParticipantes.add(new ParticipanteJugador((String) strTok
+						.nextElement()));
+			}
+
+		}
+
+		return listaParticipantes;
+	}
+
+	public String[] recuperarTitulosEventos() {
+		List<Entidad> eEventos = servPersistencia.recuperarEntidades("evento");
+		List<String> titulosAux = new LinkedList<String>();
+
+		String tituloDevolver;
+		int i = 0;
+
+		for (Entidad eEvento : eEventos) {
+			tituloDevolver = "";
+			tituloDevolver += eEvento.getId() + "-";
+			tituloDevolver += CatalogoEventos.getUnicaInstancia()
+					.getEvento(eEvento.getId()).getNombre();
+			titulosAux.add(tituloDevolver);
+		}
+
+		String[] tituloEventos = new String[titulosAux.size()];
+		for (String titulo : titulosAux) {
+			tituloEventos[i] = titulo;
+			i++;
+		}
+
+		return tituloEventos;
+	}
+
+	public void borrarEvento(Evento evento) {
+		Entidad eEvento;
+		eEvento = servPersistencia.recuperarEntidad(evento.getCodigo());
+		servPersistencia.borrarEntidad(eEvento);
+		// TODO
+		// BORRAR LISTA DE APUESTAS OFRECIDAS
+		// Y DENTRO DE LISTA DE APUESTAS OFRECIDAS BORRAR PRONOSTICOS
+		// ¿HACE FALTA?
+
+	}
+
+	public Evento modificarEvento(Evento evento) {
+		Entidad eEvento;
+
+		eEvento = servPersistencia.recuperarEntidad(evento.getCodigo());
+
+		// Como lo unico que se hace al modificar evento es actualizar su lista
+		// de apuestas ofrecidas solo tenemos que actualizar ese parametro
+		servPersistencia.eliminarPropiedadEntidad(eEvento, "apuestasOfrecidas");
+		servPersistencia.anadirPropiedadEntidad(eEvento, "apuestasOfrecidas",
+				obtenerApuestasString(evento.getApuestas()));
+
+		return evento;
+	}
+
+	public Evento recuperarEvento(int codigo) {
+		Entidad eEvento;
+		String nombre;
+		String deporte;
+		String cuota;
+		Date dia = null;
+		Date hora = null;
+		String participantes;
+		String apuestasOfrecidas;
+		String cerrado;
+
+		eEvento = servPersistencia.recuperarEntidad(codigo);
+		nombre = servPersistencia.recuperarPropiedadEntidad(eEvento, "nombre");
+		deporte = servPersistencia
+				.recuperarPropiedadEntidad(eEvento, "deporte");
+		cerrado = servPersistencia
+				.recuperarPropiedadEntidad(eEvento, "cerrado");
+		cuota = servPersistencia.recuperarPropiedadEntidad(eEvento, "cuota");
+		try {
+			dia = fechaDia.parse(servPersistencia.recuperarPropiedadEntidad(
+					eEvento, "dia"));
+			hora = fechaHora.parse(servPersistencia.recuperarPropiedadEntidad(
+					eEvento, "hora"));
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+		participantes = servPersistencia.recuperarPropiedadEntidad(eEvento,
+				"participantes");
+		apuestasOfrecidas = servPersistencia.recuperarPropiedadEntidad(eEvento,
+				"apuestasOfrecidas");
+		List<Participante> listaParticipantes = obtenerParticipantesLista(participantes);
+		Evento evento = new Evento(nombre, dia, hora, null, listaParticipantes,
+				null);
+
+		if (cerrado.equals("1")) {
+			evento.setCerrado(true);
+		} else {
+			evento.setCerrado(false);
+			// Añadimos el Evento como oyente
+			ComponenteResultadosEventos.getUnicaInstancia().addOyente(evento);
+		}
+
+		evento.setCodigo(codigo);
+		evento.obtenerDeporte(deporte);
+		evento.obtenerCuota(cuota);
+
+		List<ApuestaOfrecida> listaApuestas = obtenerApuestasList(apuestasOfrecidas);
+		evento.setApuestas(listaApuestas);
+
+		return evento;
+	}
+
+	public List<Evento> recuperarTodosEventos() {
+		List<Entidad> eEventos = servPersistencia.recuperarEntidades("evento");
+		List<Evento> eventos = new LinkedList<Evento>();
+
+		for (Entidad eEvento : eEventos) {
+			eventos.add(recuperarEvento(eEvento.getId()));
+		}
+
+		return eventos;
+	}
+
+	private ApuestaOfrecida recuperarApuestaOfrecida(int codigo)
+			throws DAOException {
+		return FactoriaDAO.getFactoriaDAO(FactoriaDAO.PERSIST_TDS)
+				.getApuestaOfrecidaDAO().recuperarApuestaOfrecida(codigo);
+	}
+
+	public void cerrarEvento(Evento evento) {
+		Entidad eEvento;
+
+		eEvento = servPersistencia.recuperarEntidad(evento.getCodigo());
+
+		servPersistencia.eliminarPropiedadEntidad(eEvento, "cerrado");
+		servPersistencia.anadirPropiedadEntidad(eEvento, "cerrado", "1");
+
+	}
+
+}

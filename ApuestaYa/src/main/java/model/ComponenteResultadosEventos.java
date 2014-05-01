@@ -1,0 +1,52 @@
+package model;
+
+import java.util.LinkedList;
+
+import resultado.CargadorResultados;
+import resultado.Resultado;
+
+public class ComponenteResultadosEventos implements IAsignacionArchivo {
+	private ResultadosEvento ficheroResultados;
+	private LinkedList<IResultadosListener> resultadosListener; // Lista de
+																// oyentes
+
+	private static ComponenteResultadosEventos unicaInstancia = new ComponenteResultadosEventos();
+
+	private ComponenteResultadosEventos() {
+		resultadosListener = new LinkedList<IResultadosListener>();
+	}
+
+	public static ComponenteResultadosEventos getUnicaInstancia() {
+		return unicaInstancia;
+	}
+
+	public void asignarArchivo(String nombreArchivo) {
+		Resultado resultado = CargadorResultados
+				.cargarResultados(nombreArchivo);
+		ficheroResultados = new ResultadosEvento(resultado);
+
+		// ENVIAR RESULTADO A LOS EVENTOS
+		for (IResultadosListener r : resultadosListener) {
+
+			r.nuevosResultados(ficheroResultados);
+		}
+
+		// Quitamos de oyentes los eventos que ya han cargado su resultado
+		for (Evento evento : CatalogoEventos.getUnicaInstancia()
+				.getAllEventos()) {
+			if (evento.isCerrado()) {
+				ComponenteResultadosEventos.getUnicaInstancia().removeOyente(
+						evento);
+			}
+		}
+
+	}
+
+	public void addOyente(Evento evento) {
+		resultadosListener.add(evento);
+	}
+
+	public void removeOyente(Evento evento) {
+		resultadosListener.remove(evento);
+	}
+}

@@ -1,0 +1,155 @@
+package model;
+
+import java.util.Date;
+import java.util.List;
+
+import controler.ApuestasYa;
+
+public abstract class ApuestaRealizada {
+	private double cantidad;
+	private boolean ganadora;
+	// Para ver si la apuesta sigue vigente o nada
+	private boolean finalizada;
+	private Pronostico pronostico;
+	private int tipoApuesta; // 0=Sencilla 1=Combinada 2=Sistema
+	private int usuarioApostador;
+	private int codigo;
+
+	public ApuestaRealizada(double cantidad, Pronostico pronostico,
+			int usuarioAPostador) {
+		this.cantidad = cantidad;
+		this.pronostico = pronostico;
+		this.ganadora = false;
+		this.usuarioApostador = usuarioAPostador;
+	}
+
+	public double getCantidad() {
+		return cantidad;
+	}
+
+	public Pronostico getPronostico() {
+		return pronostico;
+	}
+
+	public int getCodigo() {
+		return codigo;
+	}
+
+	public boolean isGanadora() {
+		return ganadora;
+	}
+
+	public void setGanadora(boolean ganadora) {
+		this.ganadora = ganadora;
+	}
+
+	/**
+	 * Metodo que calcula la ganancia de la apuesta y se lo suma al usuario
+	 * 
+	 * @param cuota
+	 *            La cuota con la que se tiene que calcular
+	 */
+
+	public void apuestaGanadora(Cuota cuota) {
+		setGanadora(true);
+		// La cuota calcula la ganancia, aplicando el patron estrategia
+		double ganancia = cuota.calcular(cantidad, pronostico.getGanancia());
+		// ademas de la ganancia, para el ingreso tenemos que sumarle la
+		// cantidad que se aposto
+		ganancia += cantidad;
+		CatalogoUsuarios.getUnicaInstancia().getUsuario(this.usuarioApostador)
+				.addTransaccion(new TransaccionIngreso(ganancia, new Date()));
+		ApuestasYa.getUnicaInstancia().modificarTransacciones(
+				CatalogoUsuarios.getUnicaInstancia().getUsuario(
+						this.usuarioApostador));
+
+		// una vez que tenemos calculada una apuesta ganadora tenemos que
+		// comprobar si ese usuario le atañe sus apuestas multiples
+		comprobarMultiples(cuota);
+
+	}
+
+	private void comprobarMultiples(Cuota cuota) {
+		Usuario usuario = CatalogoUsuarios.getUnicaInstancia().getUsuario(
+				this.usuarioApostador);
+		List<ApuestaRealizada> listaMultiples = usuario.getApuestasRealizadas();
+		for (ApuestaRealizada aM : listaMultiples) {
+			if (aM instanceof ApuestaMultiple) {
+				// si la apuesta multiple no se finalizo
+				if (!aM.isFinalizada())
+					if (((ApuestaMultiple) aM).comprobarApuestaMultiple()) {
+						System.out.println("HOLA");
+						// si devuelve true es que esa apuesta multiple es
+						// ganadora
+						// calculamos la ganancia total
+						double gananciaTotal = obtenerCuotaTotal((ApuestaMultiple) aM);
+						gananciaTotal = cuota.calcular(cantidad, gananciaTotal);
+						// ademas de la ganancia, para el ingreso tenemos que
+						// sumarle la
+						// cantidad que se aposto
+						gananciaTotal += cantidad;
+						CatalogoUsuarios
+								.getUnicaInstancia()
+								.getUsuario(this.usuarioApostador)
+								.addTransaccion(
+										new TransaccionIngreso(gananciaTotal,
+												new Date()));
+						ApuestasYa.getUnicaInstancia().modificarTransacciones(
+								CatalogoUsuarios.getUnicaInstancia()
+										.getUsuario(this.usuarioApostador));
+
+					}
+			}
+		}
+
+	}
+
+	private double obtenerCuotaTotal(ApuestaMultiple aM) {
+		double gananciaTotal = 0;
+		for (ApuestaRealizada aR : aM.getApuestasRealizadas()) {
+			gananciaTotal *= aR.getPronostico().getGanancia();
+		}
+		return gananciaTotal;
+	}
+
+	public void setCantidad(double cantidad) {
+		this.cantidad = cantidad;
+	}
+
+	public void setPronostico(Pronostico pronostico) {
+		this.pronostico = pronostico;
+	}
+
+	public void setCodigo(int codigo) {
+		this.codigo = codigo;
+	}
+
+	public int getTipoApuesta() {
+		return tipoApuesta;
+	}
+
+	public void setTipoApuesta(int tipoApuesta) {
+		this.tipoApuesta = tipoApuesta;
+	}
+
+	public int getUsuarioApostador() {
+		return usuarioApostador;
+	}
+
+	public void setUsuarioApostador(int usuarioApostador) {
+		this.usuarioApostador = usuarioApostador;
+	}
+
+	public boolean isFinalizada() {
+		return finalizada;
+	}
+
+	public void setFinalizada(boolean finalizada) {
+		this.finalizada = finalizada;
+	}
+
+	public void finalizar() {
+		setFinalizada(true);
+	}
+
+}

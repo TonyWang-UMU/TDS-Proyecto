@@ -1,0 +1,89 @@
+<?xml version ="1.0" encoding ="UTF-8" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	targetNamespace="http://www.misresultados.es/tds" xmlns="http://www.misresultados.es/tds"
+	elementFormDefault="qualified">
+
+	<xs:simpleType name="TiposDeporte">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="futbol" />
+			<xs:enumeration value="tenis" />
+			<xs:enumeration value="f1" />
+		</xs:restriction>
+	</xs:simpleType>
+
+	<xs:element name="resultado">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element ref="resultado_futbol" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="resultado_tenis" minOccurs="0" maxOccurs="unbounded"/>
+				<xs:element ref="resultado_f1" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="deporte" type="TiposDeporte" use="required" />
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="Goleador">
+		<xs:attribute name="jugador" type="xs:string" use="required" />
+		<xs:attribute name="minuto" type="xs:int" use="required" />
+	</xs:complexType>
+
+	<xs:complexType name="Equipo">
+		<xs:sequence>
+			<xs:element name="goleador" type="Goleador" minOccurs="0"
+				maxOccurs="unbounded" />
+		</xs:sequence>
+		<xs:attribute name="equipo" type="xs:string" use="required" />
+		<xs:attribute name="goles" type="xs:int" use="required" />
+	</xs:complexType>
+
+	<xs:element name="resultado_futbol">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="local" type="Equipo" minOccurs="1"
+					maxOccurs="1" />
+				<xs:element name="visitante" type="Equipo" minOccurs="1"
+					maxOccurs="1" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:complexType name="JugadorTenis">
+		<xs:sequence>
+			<xs:element name="set" minOccurs="2" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:attribute name="numero" type="xs:int" use="required" />
+					<xs:attribute name="juegos" type="xs:int" use="required" />
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+		<xs:attribute name="nombre" type="xs:string" use="required" />
+		<xs:attribute name="aces" type="xs:int"  />
+	</xs:complexType>
+
+	<xs:element name="resultado_tenis">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="jugador1" type="JugadorTenis"
+					minOccurs="1" maxOccurs="1" />
+				<xs:element name="jugador2" type="JugadorTenis"
+					minOccurs="1" maxOccurs="1" />
+			</xs:sequence>
+		</xs:complexType>
+	</xs:element>
+
+	<xs:element name="resultado_f1">
+		<xs:complexType>
+			<xs:sequence>
+				<xs:element name="piloto" minOccurs="1" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:attribute name="posicion" type="xs:int" use="required" />
+						<xs:attribute name="nombre" type="xs:string" use="required" />
+						<xs:attribute name="escuderia" type="xs:string"  />
+						<xs:attribute name="vuelta_rapida" type="xs:string"  />						
+					</xs:complexType>
+				</xs:element>
+			</xs:sequence>
+			<xs:attribute name="gp" type="xs:string" use="required" />
+		</xs:complexType>
+	</xs:element>
+</xs:schema>

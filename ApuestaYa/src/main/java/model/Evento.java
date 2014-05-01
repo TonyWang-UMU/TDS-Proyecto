@@ -1,0 +1,275 @@
+package model;
+
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+import resultado.Resultado;
+import resultado.ResultadoF1;
+import resultado.ResultadoFutbol;
+import resultado.ResultadoTenis;
+import controler.ApuestasYa;
+import dao.DAOException;
+import dao.FactoriaDAO;
+
+public class Evento implements IResultadosListener {
+	private String nombre;
+	private Date fecha;
+	private Date hora;
+	private Resultado resultado;
+	private List<Participante> participantes;
+	private int codigo;
+	private Deporte deporte;
+	// El tipo de cuota que tendra asociado el evento
+	private Cuota cuota;
+	private List<ApuestaOfrecida> apuestas;
+	private boolean cerrado;
+
+	public Evento(String nombre, Date fecha, Date hora, Deporte deporte,
+			List<Participante> participantes, Cuota cuota) {
+		this.nombre = nombre;
+		this.fecha = fecha;
+		this.hora = hora;
+		this.deporte = deporte;
+		this.participantes = participantes;
+		this.cuota = cuota;
+		apuestas = new LinkedList<ApuestaOfrecida>();
+
+		// creamos las apuestas por defecto
+
+		Cuota cuotaApuesta = null;
+		// Creamos una nueva cuota dependiendo del evento y la cuota que tenga,
+		// esta cuota sera para crear la apuesta
+		if (cuota instanceof CuotaBritanica) {
+			cuotaApuesta = new CuotaBritanica();
+		} else if (cuota instanceof CuotaEuropea) {
+			cuotaApuesta = new CuotaEuropea();
+		}
+
+		LinkedList<Pronostico> listaPronosticos;
+		Pronostico pronostico1;
+		Pronostico pronostico2;
+		Pronostico pronosticoX;
+
+		if (deporte instanceof DeporteFutbol) {
+			// hacer persistente los pronosticos
+
+			pronostico1 = ApuestasYa.getUnicaInstancia().registrarPronostico(
+					Math.random() * 3 + 1, "1");
+			pronostico2 = ApuestasYa.getUnicaInstancia().registrarPronostico(
+					Math.random() * 3 + 1, "2");
+			pronosticoX = ApuestasYa.getUnicaInstancia().registrarPronostico(
+					Math.random() * 3 + 1, "X");
+			listaPronosticos = new LinkedList<Pronostico>();
+			listaPronosticos.add(pronostico1);
+			listaPronosticos.add(pronosticoX);
+			listaPronosticos.add(pronostico2);
+
+			// crear la apuesta persistente tambien
+			ApuestaSimple1X2 apuesta1X2 = new ApuestaSimple1X2(
+					listaPronosticos, cuotaApuesta);
+			apuesta1X2 = (ApuestaSimple1X2) ApuestasYa.getUnicaInstancia()
+					.registrarApuestaOfrecida(apuesta1X2);
+
+			// añadir la apuesta nueva creada con ID al evento
+			this.addApuesta(apuesta1X2);
+
+		} else if (deporte instanceof DeporteTenis) {
+
+			pronostico1 = ApuestasYa.getUnicaInstancia().registrarPronostico(
+					Math.random() * 3 + 1, participantes.get(0).getNombre());
+			pronostico2 = ApuestasYa.getUnicaInstancia().registrarPronostico(
+					Math.random() * 3 + 1, participantes.get(1).getNombre());
+			listaPronosticos = new LinkedList<Pronostico>();
+			listaPronosticos.add(pronostico1);
+			listaPronosticos.add(pronostico2);
+			ApuestaSimple12 apuestaSimple12 = new ApuestaSimple12(
+					listaPronosticos, cuotaApuesta);
+			apuestaSimple12 = (ApuestaSimple12) ApuestasYa.getUnicaInstancia()
+					.registrarApuestaOfrecida(apuestaSimple12);
+
+			this.addApuesta(apuestaSimple12);
+
+		} else if (deporte instanceof DeporteFormula1) {
+			listaPronosticos = new LinkedList<Pronostico>();
+			for (Participante participante : participantes) {
+				pronostico1 = ApuestasYa.getUnicaInstancia()
+						.registrarPronostico(Math.random() * 3 + 1,
+								participante.getNombre());
+				listaPronosticos.add(pronostico1);
+			}
+			ApuestaSimpleVictoria apuestaSimpleVictoria = new ApuestaSimpleVictoria(
+					listaPronosticos, cuota);
+			apuestaSimpleVictoria = (ApuestaSimpleVictoria) ApuestasYa
+					.getUnicaInstancia().registrarApuestaOfrecida(
+							apuestaSimpleVictoria);
+
+			this.addApuesta(apuestaSimpleVictoria);
+
+		}
+	}
+
+	public void obtenerDeporte(String deporte) {
+		if (deporte.equals("DeporteFutbol"))
+			this.setDeporte(new DeporteFutbol());
+		else if (deporte.equals("DeporteTenis"))
+			this.setDeporte(new DeporteTenis());
+		else if (deporte.equals("DeporteFormula1"))
+			this.setDeporte(new DeporteFormula1());
+	}
+
+	public void obtenerCuota(String cuota) {
+		if (cuota.equals("CuotaBritanica"))
+			this.setCuota(new CuotaBritanica());
+		else if (cuota.equals("CuotaEuropea"))
+			this.setCuota(new CuotaEuropea());
+	}
+
+	public List<ApuestaOfrecida> getApuestas() {
+		return apuestas;
+	}
+
+	public void setApuestas(List<ApuestaOfrecida> apuestas) {
+		this.apuestas = apuestas;
+	}
+
+	public ApuestaOfrecida recuperarApuesta(int codigo) {
+		for (ApuestaOfrecida aO : this.apuestas)
+			if (aO.getCodigo() == codigo)
+				return aO;
+		return null;
+	}
+
+	public void modificarApuesta(int codigo, ApuestaOfrecida nuevaApuesta) {
+
+		for (int i = 0; i < this.apuestas.size(); i++)
+			if (apuestas.get(i).getCodigo() == codigo)
+				apuestas.set(i, nuevaApuesta);
+	}
+
+	public void addApuesta(ApuestaOfrecida apuesta) {
+		this.apuestas.add(apuesta);
+	}
+
+	public List<Participante> getParticipantes() {
+		return participantes;
+	}
+
+	public Date getFecha() {
+		return fecha;
+	}
+
+	public Date getHora() {
+		return hora;
+	}
+
+	public Resultado getResultado() {
+		return resultado;
+	}
+
+	public String getNombre() {
+		return nombre;
+	}
+
+	public int getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(int identificador) {
+		this.codigo = identificador;
+	}
+
+	public Deporte getDeporte() {
+		return deporte;
+	}
+
+	public void setDeporte(Deporte deporte) {
+		this.deporte = deporte;
+	}
+
+	public Cuota getCuota() {
+		return cuota;
+	}
+
+	public void setCuota(Cuota cuota) {
+		this.cuota = cuota;
+	}
+
+	/**
+	 * Metodo que empareja resultados del fichero con los eventos que tenemos
+	 */
+
+	public void nuevosResultados(ResultadosEvento resultadosEvento) {
+		for (Resultado r : resultadosEvento.getResultados()) {
+			if (deporte instanceof DeporteFutbol
+					&& !r.getResultadoFutbol().isEmpty()) {
+				ResultadoFutbol futbol = r.getResultadoFutbol().get(0);
+				if (futbol.getLocal().getEquipo()
+						.equals(participantes.get(0).getNombre())
+						&& futbol.getVisitante().getEquipo()
+								.equals(participantes.get(1).getNombre())) {
+					asignarResultado(r);
+					break;
+				}
+			}
+
+			else if (deporte instanceof DeporteTenis
+					&& !r.getResultadoTenis().isEmpty()) {
+				ResultadoTenis tenis = r.getResultadoTenis().get(0);
+				if (tenis.getJugador1().getNombre()
+						.equals(participantes.get(0).getNombre())
+						&& tenis.getJugador2().getNombre()
+								.equals(participantes.get(1).getNombre())) {
+					asignarResultado(r);
+					//break;
+				}
+			}
+
+			else if (deporte instanceof DeporteFormula1
+					&& !r.getResultadoF1().isEmpty()) {
+				ResultadoF1 f1 = r.getResultadoF1().get(0);
+				if (f1.getGp().equals(nombre)) {
+					asignarResultado(r);
+					break;
+				}
+			}
+		}
+	}
+
+	/*
+	 * Metodo que pasa el resultado del evento a todas las apuestas que hay
+	 * sobre ese evento
+	 */
+
+	private void asignarResultado(Resultado resultado) {
+		this.resultado = resultado;
+		for (ApuestaOfrecida a : apuestas) {
+			a.obtenerGanadoras(resultado);
+			a.cerrar();
+			try {
+				FactoriaDAO.getFactoriaDAO(FactoriaDAO.PERSIST_TDS)
+						.getApuestaOfrecidaDAO().cerrarApuesta(a);
+			} catch (DAOException e) {
+
+			}
+		}
+
+		// una vez comprobadas sus apuestas cerramos el evento
+		setCerrado(true);
+		// actualizamos el evento en el catalogo
+		ApuestasYa.getUnicaInstancia().modificarEvento(this);
+		// actualizamos en la base de datos
+		FactoriaDAO.getFactoriaDAO().getEventoDAO().cerrarEvento(this);
+		// lo quitamos de los oyentes
+
+
+	}
+
+	public boolean isCerrado() {
+		return cerrado;
+	}
+
+	public void setCerrado(boolean cerrado) {
+		this.cerrado = cerrado;
+	}
+
+}

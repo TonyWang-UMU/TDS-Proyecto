@@ -1,0 +1,19 @@
+package dao;
+
+import java.util.List;
+import model.Evento;
+
+public interface EventoDAO {
+	public Evento registrarEvento(Evento evento);
+
+	public void borrarEvento(Evento evento);
+
+	public Evento modificarEvento(Evento evento);
+
+	public Evento recuperarEvento(int codigo);
+
+	public List<Evento> recuperarTodosEventos();
+
+	public String[] recuperarTitulosEventos();
+
+}

@@ -1,0 +1,191 @@
+package dao;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.StringTokenizer;
+
+import beans.Entidad;
+import beans.Propiedad;
+import tds.driver.FactoriaServicioPersistencia;
+import tds.driver.ServicioPersistencia;
+
+import model.*;
+
+public class AdaptadorTDSApuestaRealizadaDAO implements ApuestaRealizadaDAO {
+	private ServicioPersistencia servPersistencia;
+
+	public AdaptadorTDSApuestaRealizadaDAO() {
+		servPersistencia = FactoriaServicioPersistencia.getInstance()
+				.getServicioPersistencia();
+	}
+
+	public ApuestaRealizada recuperarApuestaRealizada(int codigo) {
+		Entidad eApuestaRealizada;
+		int tipoApuesta;
+		double cantidad;
+		// para el pronostico de una sencilla
+		int codPronostico;
+		// para el pronostico de una multiple
+		String pronostico;
+		String codApuestaOfrecida;
+
+		int codUsuario;
+
+		eApuestaRealizada = servPersistencia.recuperarEntidad(codigo);
+
+		tipoApuesta = Integer.parseInt(servPersistencia
+				.recuperarPropiedadEntidad(eApuestaRealizada, "tipoApuesta"));
+
+		cantidad = Double.parseDouble(servPersistencia
+				.recuperarPropiedadEntidad(eApuestaRealizada, "cantidad"));
+		codUsuario = Integer.parseInt(servPersistencia
+				.recuperarPropiedadEntidad(eApuestaRealizada, "codUsuario"));
+
+		List<ApuestaRealizada> listaApuestas;
+		// Crear apuestas diferentes dependiendo del tipo
+
+		if (tipoApuesta == 0) {
+
+			codPronostico = Integer
+					.parseInt(servPersistencia.recuperarPropiedadEntidad(
+							eApuestaRealizada, "pronostico"));
+			codApuestaOfrecida = servPersistencia.recuperarPropiedadEntidad(
+					eApuestaRealizada, "apuestaOfrecida");
+			try {
+				ApuestaSencilla apuestaSencilla = new ApuestaSencilla(cantidad,
+						this.recuperarPronostico(codPronostico),
+						codApuestaOfrecida, codUsuario);
+				return apuestaSencilla;
+			} catch (DAOException e) {
+
+			}
+		} else if (tipoApuesta == 1) {
+			pronostico = servPersistencia.recuperarPropiedadEntidad(
+					eApuestaRealizada, "pronostico");
+			// en este caso el pronostico no se guarda persistente, porque no es
+			// un pronostico de apuesta sencilla.
+			// lo guardamos como una cadena de ganancia y pronostico por lo que
+			// tenemos que recuperarla
+			// en la apuesta combinada funciona igual
+			StringTokenizer strTok = new StringTokenizer(pronostico, "-");
+
+			listaApuestas = obtenerListaApuestas(servPersistencia
+					.recuperarPropiedadEntidad(eApuestaRealizada,
+							"listaApuestas"));
+
+			ApuestaMultipleCombinada apuestaCombinada = new ApuestaMultipleCombinada(
+					cantidad, new Pronostico(Double.parseDouble(strTok
+							.nextToken()), ""), listaApuestas, codUsuario);
+			return apuestaCombinada;
+
+		} else if (tipoApuesta == 2) {
+
+			pronostico = servPersistencia.recuperarPropiedadEntidad(
+					eApuestaRealizada, "pronostico");
+			StringTokenizer strTok = new StringTokenizer(pronostico, "-");
+			String cadenaPronostico = strTok.nextToken();
+			Double gananciaPronostico = Double.parseDouble(strTok.nextToken());
+			listaApuestas = obtenerListaApuestas(servPersistencia
+					.recuperarPropiedadEntidad(eApuestaRealizada,
+							"listaApuestas"));
+
+			ApuestaMultipleSistema apuestaSistema = new ApuestaMultipleSistema(
+					cantidad, new Pronostico(gananciaPronostico,
+							cadenaPronostico), listaApuestas, codUsuario);
+			return apuestaSistema;
+
+		}
+		return null;
+	}
+
+	public ApuestaRealizada registrarApuestaRealizada(
+			ApuestaRealizada apuestaRealizada) {
+		Entidad eApuestaRealizada;
+		eApuestaRealizada = new Entidad();
+		eApuestaRealizada.setNombre("apuestaRealizada");
+		eApuestaRealizada.setPropiedades(new ArrayList<Propiedad>(Arrays
+				.asList(new Propiedad("tipoApuesta", String
+						.valueOf(apuestaRealizada.getTipoApuesta())),
+						new Propiedad("cantidad", String
+								.valueOf(apuestaRealizada.getCantidad())),
+						new Propiedad("codUsuario",
+								String.valueOf(apuestaRealizada
+										.getUsuarioApostador())))));
+
+		eApuestaRealizada = servPersistencia
+				.registrarEntidad(eApuestaRealizada);
+
+		if (apuestaRealizada.getTipoApuesta() == 0) {
+
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"apuestaOfrecida",
+					((ApuestaSencilla) apuestaRealizada).getApuestaOfrecida());
+
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"pronostico", String.valueOf(apuestaRealizada
+							.getPronostico().getCodigo()));
+		} else if (apuestaRealizada.getTipoApuesta() == 1) {
+			String listaApuestas = obtenerListaApuestas(((ApuestaMultiple) apuestaRealizada)
+					.getApuestasRealizadas());
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"listaApuestas", listaApuestas);
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"pronostico", apuestaRealizada.getPronostico()
+							.getPronostico()
+							+ "-"
+							+ apuestaRealizada.getPronostico().getGanancia());
+
+		} else if (apuestaRealizada.getTipoApuesta() == 2) {
+			String listaApuestas = obtenerListaApuestas(((ApuestaMultiple) apuestaRealizada)
+					.getApuestasRealizadas());
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"listaApuestas", listaApuestas);
+			servPersistencia.anadirPropiedadEntidad(eApuestaRealizada,
+					"pronostico", apuestaRealizada.getPronostico()
+							.getPronostico()
+							+ "-"
+							+ apuestaRealizada.getPronostico().getGanancia());
+
+		}
+		apuestaRealizada.setCodigo(eApuestaRealizada.getId());
+		return apuestaRealizada;
+	}
+
+	private String obtenerListaApuestas(List<ApuestaRealizada> apuestaRealizada) {
+		String cadenaDevolver = "";
+		for (ApuestaRealizada aR : apuestaRealizada) {
+			cadenaDevolver += aR.getCodigo() + "-";
+		}
+
+		return cadenaDevolver;
+	}
+
+	private List<ApuestaRealizada> obtenerListaApuestas(String listaApuestas) {
+		LinkedList<ApuestaRealizada> listaDevolver = new LinkedList<ApuestaRealizada>();
+		StringTokenizer strTok = new StringTokenizer(listaApuestas, "-");
+		ApuestaRealizada aR;
+		int codigo;
+		while (strTok.hasMoreTokens()) {
+			try {
+				codigo = Integer.parseInt((String) strTok.nextElement());
+				aR = this.recuperarApuestaRealizada(codigo);
+				// Cuando recuperamos una apuesta de la base de datos y la
+				// instanciamos
+				// tenemos que acordarnos de asignarle el correspondiente codigo
+				aR.setCodigo(codigo);
+				listaDevolver.add(aR);
+			} catch (NumberFormatException e) {
+
+			}
+		}
+		return listaDevolver;
+	}
+
+	private Pronostico recuperarPronostico(int codigo) throws DAOException {
+		return FactoriaDAO.getFactoriaDAO(FactoriaDAO.PERSIST_TDS)
+				.getPronosticoDAO().recuperarPronostico(codigo);
+	}
+
+}
